@@ -1,0 +1,29 @@
+# docker compose up --build   ->  UI http://localhost:8080   API docs http://localhost:8000/docs
+# Data lives in the named volume "pgdata" (PostgreSQL), so it persists across restarts.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: factoryflow
+      POSTGRES_PASSWORD: factoryflow
+      POSTGRES_DB: factoryflow
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U factoryflow"]
+      interval: 5s
+      retries: 10
+  backend:
+    build: { context: ., dockerfile: Dockerfile }
+    environment:
+      DATABASE_URL: postgresql+psycopg://factoryflow:factoryflow@db:5432/factoryflow
+      SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
+      CORS_ORIGINS: http://localhost:8080
+      DEMO_MODE: "true"
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["8000:8000"]
+  frontend:
+    build: { context: ./frontend }
+    depends_on: [backend]
+    ports: ["8080:80"]
+volumes:
+  pgdata:

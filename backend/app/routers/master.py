@@ -12,7 +12,7 @@ from app.models import BOM, Customer, InventoryItem, Product, StockMovement, Sup
 from app.schemas import (AdjustmentIn, BomIn, BomOut, CustomerIn, CustomerOut, ItemIn, ItemOut, ProductIn, ProductOut, ProductPatch,
                          PurchaseIn, PurchaseOut, SupplierIn, SupplierOut)
 from app.services import production as prod_svc, purchase as pur_svc, reports, stock
-from app.services.common import audit
+from app.services.common import audit, jsonable
 
 products = APIRouter(prefix="/products", tags=["products"])
 customers = APIRouter(prefix="/customers", tags=["customers"])
@@ -157,8 +157,8 @@ def create_item(body: ItemIn, db: Session = Depends(get_db), user: User = Depend
 @inventory.get("/summary")
 def inventory_summary(item_type: str | None = None, db: Session = Depends(get_db), _: User = Depends(require_roles(*OPS_READ))):
     rows = stock.stock_summary(db, item_type)
-    return {"items": rows, "total_value": sum((r["value"] for r in rows), 0),
-            "low_stock": [r for r in rows if r["low_stock"]]}
+    return jsonable({"items": rows, "total_value": sum((r["value"] for r in rows), 0),
+                     "low_stock": [r for r in rows if r["low_stock"]]})
 
 
 @inventory.post("/adjustments", status_code=201)
@@ -170,20 +170,20 @@ def stock_adjustment(body: AdjustmentIn, db: Session = Depends(get_db), user: Us
                              source_id=None, user=user, remarks=body.reason)
     audit(db, user, "ADJUST", "InventoryItem", item.id, new={"direction": body.direction, "quantity": body.quantity, "reason": body.reason})
     db.commit()
-    return {"movement_id": mv.id, "balance": stock.balance(db, item.id)}
+    return jsonable({"movement_id": mv.id, "balance": stock.balance(db, item.id)})
 
 
 # ------------------------------------------------ stock ledger
 @ledger.get("")
 def get_ledger(item_id: int | None = None, movement_type: str | None = None, date_from: date | None = None, date_to: date | None = None,
                db: Session = Depends(get_db), _: User = Depends(require_roles(*OPS_READ))):
-    return reports.stock_ledger(db, date_from, date_to, item_id=item_id, movement_type=movement_type)
+    return jsonable(reports.stock_ledger(db, date_from, date_to, item_id=item_id, movement_type=movement_type))
 
 
 @ledger.get("/summary/{item_id}")
 def item_summary(item_id: int, date_from: date | None = None, date_to: date | None = None, db: Session = Depends(get_db),
                  _: User = Depends(require_roles(*OPS_READ))):
-    return stock.item_ledger_summary(db, item_id, date_from, date_to)
+    return jsonable(stock.item_ledger_summary(db, item_id, date_from, date_to))
 
 
 # ------------------------------------------------ purchases

@@ -12,6 +12,7 @@ from app.deps import ALL, FIN_READ, OPS_READ, get_current_user, require_roles
 from app.models import (AuditLog, CreditNote, Customer, Dispatch, Invoice, Payment, ProductionRun, SalesOrder, User)
 from app.schemas import (AuditOut, CreditNoteIn, CreditNoteOut, DispatchIn, DispatchOut, InvoiceOut, OrderEditIn, OrderIn, OrderOut,
                          OverheadIn, PaymentIn, PaymentOut, PlanIn, ReasonIn, RunIn, RunOut)
+from app.services.common import jsonable
 from app.services import dashboard as dash_svc, pdf, production as prod_svc, reports, sales, stock
 
 production = APIRouter(prefix="/production", tags=["production"])
@@ -32,7 +33,7 @@ ADMIN = require_roles("ADMIN")
 # ------------------------------------------------ production
 @production.post("/plan")
 def plan(body: PlanIn, db: Session = Depends(get_db), _: User = Depends(require_roles(*OPS_READ))):
-    return prod_svc.plan_run(db, product_id=body.product_id, bom_id=body.bom_id, batches=body.batches)
+    return jsonable(prod_svc.plan_run(db, product_id=body.product_id, bom_id=body.bom_id, batches=body.batches))
 
 
 @production.post("/runs", response_model=RunOut, status_code=201)
@@ -98,7 +99,7 @@ def my_customer_sales(db: Session = Depends(get_db), user: User = Depends(requir
         r = out.setdefault(o.customer_id, {"customer": o.customer.name, "orders": 0, "value": 0})
         r["orders"] += 1
         r["value"] += o.subtotal
-    return list(out.values())
+    return jsonable(list(out.values()))
 
 
 @orders.get("/{oid}", response_model=OrderOut)
@@ -112,7 +113,7 @@ def get_order(oid: int, db: Session = Depends(get_db), user: User = Depends(requ
 def order_stock_check(oid: int, db: Session = Depends(get_db), user: User = Depends(require_roles("ADMIN", "OWNER")) ):
     o = sales.get_order(db, oid)
     lines = sales.stock_check(db, o)
-    return {"order_no": o.order_no, "all_sufficient": all(l["sufficient"] for l in lines), "lines": lines}
+    return jsonable({"order_no": o.order_no, "all_sufficient": all(l["sufficient"] for l in lines), "lines": lines})
 
 
 @orders.put("/{oid}", response_model=OrderOut)
@@ -129,7 +130,7 @@ def submit(oid: int, db: Session = Depends(get_db), user: User = Depends(require
 def approve(oid: int, db: Session = Depends(get_db), user: User = Depends(ADMIN)):
     o = sales.decide_order(db, user, oid, True)
     lines = sales.stock_check(db, o)
-    return {"order": OrderOut.model_validate(o), "stock_warning": not all(l["sufficient"] for l in lines), "stock_check": lines}
+    return {"order": OrderOut.model_validate(o), "stock_warning": not all(l["sufficient"] for l in lines), "stock_check": jsonable(lines)}
 
 
 @orders.post("/{oid}/reject", response_model=OrderOut)
@@ -245,13 +246,13 @@ def receipt(pid: int, db: Session = Depends(get_db), _: User = Depends(require_r
 # ------------------------------------------------ costing
 @costing.get("/runs")
 def costing_runs(date_from: date | None = None, date_to: date | None = None, db: Session = Depends(get_db), _: User = Depends(require_roles(*OPS_READ))):
-    return reports.costing_report(db, date_from, date_to)
+    return jsonable(reports.costing_report(db, date_from, date_to))
 
 
 @costing.get("/weighted-average")
 def weighted_avg(db: Session = Depends(get_db), _: User = Depends(require_roles(*OPS_READ))):
-    return [{"item": r["name"], "unit": r["unit"], "quantity": r["quantity"], "avg_cost": r["avg_cost"], "value": r["value"]}
-            for r in stock.stock_summary(db) if r["item_type"] != "FINISHED"]
+    return jsonable([{"item": r["name"], "unit": r["unit"], "quantity": r["quantity"], "avg_cost": r["avg_cost"], "value": r["value"]}
+                     for r in stock.stock_summary(db) if r["item_type"] != "FINISHED"])
 
 
 # ------------------------------------------------ reports
@@ -277,7 +278,7 @@ def get_report(name: str, date_from: date | None = None, date_to: date | None = 
     if format == "xlsx":
         return Response(reports.to_xlsx(rep), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'})
-    return rep
+    return jsonable(rep)
 
 
 # ------------------------------------------------ audit + dashboard
@@ -297,7 +298,7 @@ def get_audit(entity_type: str | None = None, action: str | None = None, usernam
 @dashboard.get("")
 def get_dashboard(date_from: date | None = None, date_to: date | None = None, db: Session = Depends(get_db),
                   _: User = Depends(require_roles("OWNER", "ADMIN", "ACCOUNTANT"))):
-    return dash_svc.summary(db, date_from, date_to)
+    return jsonable(dash_svc.summary(db, date_from, date_to))
 
 
 # ------------------------------------------------ demo (disabled unless DEMO_MODE=true)
