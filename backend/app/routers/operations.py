@@ -316,7 +316,7 @@ def demo_reset(user: User = Depends(require_roles("OWNER")), db: Session = Depen
     seed.reset_database(engine)
     from app.core.db import SessionLocal
     with SessionLocal() as s:
-        seed.seed_master(s)
+        seed.seed_all(s, get_settings().seed_demo_data)
     return {"status": "reset", "message": "Database reset to seed data. Log in again if your session was invalidated."}
 
 

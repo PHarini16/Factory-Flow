@@ -91,6 +91,14 @@ def seed_master(db: Session) -> None:
     db.commit()
 
 
+def seed_all(db: Session, demo_data: bool = True) -> None:
+    """Master data + (optionally) the dummy history."""
+    seed_master(db)
+    if demo_data:
+        from app.demo_data import seed_demo_data
+        seed_demo_data(db)
+
+
 def reset_database(engine) -> None:
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)

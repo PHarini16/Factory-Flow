@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     access_token_minutes: int = 60
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     demo_mode: bool = True  # enables /demo/* reset endpoints. Set False in production.
+    seed_demo_data: bool = True  # load ~6 months of dummy history on first start
     auto_migrate: bool = True  # run `alembic upgrade head` + seed on startup
     login_rate_limit: int = 10  # attempts per minute per (ip, username)
 

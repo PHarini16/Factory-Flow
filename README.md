@@ -67,9 +67,20 @@ npm run dev                     # UI on http://localhost:5173
 ```
 (On startup the API also auto-migrates and seeds an empty database, controlled by `AUTO_MIGRATE`.) The Vite dev server proxies `/api` to port 8000, so no CORS setup is needed. To reach the UI from a phone on your Wi-Fi: `npm run dev -- --host`.
 
+### Pre-loaded demo data
+A fresh database is **not empty**: on first start (or `python -m app.scripts.seed`) the app loads about six months of dummy history — 15 customers, 11 suppliers, 10 products with BOMs, 28 stock items, ~70 purchases, 24 production runs, 55 orders, 50 GST invoices, 48 dispatches, ~28 payments, two credit notes (one from a cancelled invoice), a cancelled invoice, a partial dispatch, pending approvals and a low-stock alert. It is created through the real services (so the ledger, costing, receivables and audit log are consistent) and deliberately avoids the benchmark items, so the benchmark still gives its exact numbers. Disable it with `SEED_DEMO_DATA=false` or `--no-demo-data`.
+
+**If you already ran the app before this was added**, reload the database (stop `uvicorn` first so the file is not locked):
+```powershell
+cd backend
+.\.venv\Scripts\activate
+python -m app.scripts.seed --reset
+```
+
 ### Database setup / seed / reset
 * Create + seed: `python -m app.scripts.seed` (in `backend`)
-* Clean slate: `python -m app.scripts.seed --reset`
+* Clean slate (with demo history): `python -m app.scripts.seed --reset`
+* Clean slate, master data only: `python -m app.scripts.seed --reset --no-demo-data`
 * Clean slate **and** run the benchmark: `python -m app.scripts.seed --reset --benchmark`
 * New migration after model changes: `alembic revision --autogenerate -m "msg"` then `alembic upgrade head`
 
@@ -103,7 +114,7 @@ Calculations: flour avg = (100×42 + 60×45)/160 = 43.125; pouches used = 188 + 
 
 ## Testing
 ```powershell
-cd backend ; .\.venv\Scripts\activate ; pytest -v      # 69 tests
+cd backend ; .\.venv\Scripts\activate ; pytest -v      # 71 tests
 cd ..\frontend ; npm run build                          # strict TypeScript check + production build
 ```
 Recorded results: [`docs/test-report.md`](docs/test-report.md).
